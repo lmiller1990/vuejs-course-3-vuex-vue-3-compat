@@ -12,6 +12,10 @@ const App = {
 
     posts() {
       return window.store.state.posts
+    },
+
+    allPostTitles() {
+      return window.store.getters['posts/allPostTitles'].value
     }
   },
 
@@ -23,6 +27,7 @@ const App = {
 
     incrementAsync() {
       window.store.dispatch('incrementAsync', parseInt(Math.random() * 100))
+      window.store.dispatch('posts/fetchPosts', { id: 3, title: 'My async post' })
     }
   },
 
@@ -31,11 +36,14 @@ const App = {
       <button @click="increment">Increment</button>
       <button @click="incrementAsync">Increment Async</button>
       Posts: {{ posts }}
+      <br />
+      <h3>Posts</h3>
+      <div v-for="title in allPostTitles" :key="title">{{ title }}</div>
     </div>`
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const { reactive } = Vue
+  const { reactive, computed } = Vue
 
   const constructNestedMutations = (modules) => {
     const mut = {}
@@ -47,6 +55,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return mut
   }
 
+  const constructNestedActions = (modules) => {
+    const actions = {}
+    for (const [name, module] of modules) {
+      for (const [handler, fn] of Object.entries(module.actions)) {
+        actions[`${name}/${handler}`] = fn
+      }
+    }
+    return actions
+  }
+
   const constructNestedState = modules => {
     const state = {}
     for (const [name, module] of modules) {
@@ -55,33 +73,49 @@ document.addEventListener('DOMContentLoaded', () => {
     return state
   }
 
+  const constructNestedGetters = (modules, state) => {
+    const getters = {}
+    for (const [name, module] of modules) {
+      for (const [handler, fn] of Object.entries(module.getters)) {
+        getters[`${name}/${handler}`] = computed(() => {
+          return fn(state[name])
+        })
+      }
+    }
+    return getters
+  }
+
+  const moduleName = handler => {
+    const isModule = handler.includes('/')
+    return isModule && handler.split('/')[0] || ''
+  }
+
   class Store {
     constructor(options) {
-      this.actions = options.actions
       const nestedState = constructNestedState(Object.entries(options.modules))
       const nested = constructNestedMutations(Object.entries(options.modules))
       this.state = reactive({...options.state, ...nestedState})
       this.mutations = {...options.mutations, ...nested}
+      this.actions = {...options.actions,  ...constructNestedActions(Object.entries(options.modules))}
+      this.getters = {...options.getters, ...constructNestedGetters(Object.entries(options.modules), this.state)}
     }
 
     commit(handler, payload) {
-      const isModule = handler.includes('/')
-      let moduleName 
-      if (isModule) {
-        moduleName = handler.split('/')[0]
-      }
+      const name = moduleName(handler)
       this.mutations[handler](
-        moduleName ? this.state[moduleName] : this.state, payload
+        name ? this.state[name] : this.state, payload
       )
     }
 
     async dispatch(handler, payload) {
       try {
-        const action = this.actions[handler]
+        const name = moduleName(handler)
+        const action = this.actions[handler].bind(this)
         action({
           state: this.state,
           commit: this.commit,
-          mutations: this.mutations
+          mutations: this.mutations,
+          prefix: name
         }, payload)
       } catch (e) {
         throw e
@@ -130,7 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actions: {
           async fetchPosts(ctx, payload) {
-            ctx.commit('ADD_POST', payload)
+            ctx.commit(`${ctx.prefix}/ADD_POST`, payload)
+          }
+        },
+
+        getters: {
+          allPostTitles: state => {
+            return state.data.map(x => x.title)
           }
         }
       }
