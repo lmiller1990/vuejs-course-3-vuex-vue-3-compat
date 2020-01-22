@@ -8,12 +8,17 @@ const App = {
   computed: {
     count() {
       return window.store.state.count
+    },
+
+    posts() {
+      return window.store.state.posts
     }
   },
 
   methods: {
     increment() {
       window.store.commit('INCREMENT', 1)
+      window.store.commit('posts/ADD_POST', { id: 2, title: 'My new post' })
     },
 
     incrementAsync() {
@@ -25,40 +30,54 @@ const App = {
     <div>Count is {{ count }} <br />
       <button @click="increment">Increment</button>
       <button @click="incrementAsync">Increment Async</button>
+      Posts: {{ posts }}
     </div>`
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   const { reactive } = Vue
 
-  let mut = {}
   const constructNestedMutations = (modules) => {
+    const mut = {}
     for (const [name, module] of modules) {
-      console.log(name, module)
       for (const [handler, fn] of Object.entries(module.mutations)) {
-        console.log(handler, fn)
         mut[`${name}/${handler}`] = fn
       }
     }
+    return mut
+  }
+
+  const constructNestedState = modules => {
+    const state = {}
+    for (const [name, module] of modules) {
+      state[name] = module.state
+    }
+    return state
   }
 
   class Store {
     constructor(options) {
-      const state = reactive(options.state)
-      this.state = state
-      this.mutations = options.mutations
       this.actions = options.actions
-      constructNestedMutations(Object.entries(options.modules))
-      console.log(mut)
+      const nestedState = constructNestedState(Object.entries(options.modules))
+      const nested = constructNestedMutations(Object.entries(options.modules))
+      this.state = reactive({...options.state, ...nestedState})
+      this.mutations = {...options.mutations, ...nested}
     }
 
     commit(handler, payload) {
-      this.mutations[handler](this.state, payload)
+      const isModule = handler.includes('/')
+      let moduleName 
+      if (isModule) {
+        moduleName = handler.split('/')[0]
+      }
+      this.mutations[handler](
+        moduleName ? this.state[moduleName] : this.state, payload
+      )
     }
 
     async dispatch(handler, payload) {
       try {
-        const action = this.actions[handler].bind(this)
+        const action = this.actions[handler]
         action({
           state: this.state,
           commit: this.commit,
