@@ -15,7 +15,8 @@ const App = {
     },
 
     allPostTitles() {
-      return window.store.getters['posts/allPostTitles'].value
+      // console.log(window.store.getters['posts/allPostTitles'])
+      return window.store.getters['posts/allPostTitles']
     }
   },
 
@@ -77,11 +78,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const getters = {}
     for (const [name, module] of modules) {
       for (const [handler, fn] of Object.entries(module.getters)) {
-        getters[`${name}/${handler}`] = computed(() => {
-          return fn(state[name])
+        // console.log(
+        //   handler,
+        //   fn
+        // )
+        module.getters[handler](state[name])
+
+        Object.defineProperty(getters, `${name}/${handler}`, {
+          get: () => computed(() => module.getters[handler](state[name])).value
+          // get: () => computed(() => state[`${name}/${handler}`]) // (state))
         })
       }
     }
+    // console.log(getters) // ['posts/allPostsTitle'])
     return getters
   }
 
@@ -97,7 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
       this.state = reactive({...options.state, ...nestedState})
       this.mutations = {...options.mutations, ...nested}
       this.actions = {...options.actions,  ...constructNestedActions(Object.entries(options.modules))}
-      this.getters = {...options.getters, ...constructNestedGetters(Object.entries(options.modules), this.state)}
+      // this.getters = {
+      //   'posts/allPostTitles': []
+      // }
+      this.getters =  constructNestedGetters(Object.entries(options.modules), this.state)
+       // {...options.getters, ...constructNestedGetters(Object.entries(options.modules), this.state)}
     }
 
     commit(handler, payload) {
@@ -170,6 +183,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         getters: {
           allPostTitles: state => {
+            // console.log(state.data)
+            // console.log(
+            //   state.data.map(x => x.title)
+            // )
+
             return state.data.map(x => x.title)
           }
         }
