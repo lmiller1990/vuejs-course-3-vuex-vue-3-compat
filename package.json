@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "jest": "^25.1.0",
+    "vue": "^3.0.0-alpha.3"
+  }
+}
