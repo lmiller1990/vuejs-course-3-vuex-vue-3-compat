@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+  <script src="/vue.js"></script>
+  <script src="/browser.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      window.store = new Vuex.Store({
+        state: {
+          count: 1,
+        },
+
+        mutations: {
+          INCREMENT(state, payload) {
+            state.count += payload
+          }
+        },
+
+        actions: {
+          increment(context, payload) {
+            context.commit('INCREMENT', payload)
+          }
+        },
+
+        getters: {
+          triple: state => state.count * 3
+        }
+      })
+
+      const App = {
+        template: `
+          <div>
+            <div>[State]: Count is: {{ count }}</div>
+            <br />
+            <div>[Getter] triple: {{ triple }}</div>
+            <br />
+            <div>[Action]<button @click="increment"> Increment</button></div>
+          </div>
+        `,
+        setup() {
+          return {
+            count: computed(() => window.store.state.count),
+            triple: computed(() => window.store.getters['triple']),
+            increment: () => window.store.dispatch('increment', 1)
+          }
+        }
+      }
+
+      Vue.createApp().mount(App, '#app')
+    })
+  </script>
+</head>
+<body>
+  <div id="app"></div>  
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { reactive, computed } from 'vue'
+const { reactive, computed } = Vue
 
 class Store {
   constructor(options) {
@@ -40,9 +40,8 @@ class Store {
   }
 }
 
-export const Vuex = {
+const Vuex = {
   Store
 }
 
-console.log('ok')
 window.Vuex = Vuex
